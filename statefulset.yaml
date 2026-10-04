@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mystatefulset
+  labels:
+    env: dev
+spec:
+  replicas: 3
+  
+  serviceName: "mysrv"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 1
+  selector:
+    matchLabels:
+      env: dev
+  template:
+    metadata:
+      labels:
+        env: dev
+    spec:
+      volumes:
+        - name: myconf
+          configMap:
+            name: myconfig
+            items:
+              - key: POSTGRES_MAX_CONNECTIONS
+                path: max.conf
+              - key: POSTGRES_SHARED_BUFFERS
+                path: buffers.conf
+      containers:
+        - name: myapp
+          image: abdelrahmanshipl333/mynginx
+          ports:
+            - containerPort: 80
+        - name: mypost
+          image: postgres
+          ports:
+            - containerPort: 5432
+          env: 
+           - name: POSTGRES_USER
+             valueFrom: 
+              secretKeyRef: 
+               name: mysecret
+               key: POSTGRES_USER
+           - name:  POSTGRES_PASSWORD
+             valueFrom: 
+              secretKeyRef: 
+                name: mysecret
+                key:  POSTGRES_PASSWORD
+          volumeMounts:
+            - name: myconf
+              mountPath: /etc/postgres-custom
+  volumeClaimTemplates:
+    - metadata:
+        name: pg-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
